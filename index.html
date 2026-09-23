@@ -171,6 +171,8 @@ h2{font-size:clamp(2rem,8vw,2.9rem);margin-bottom:1.6rem}
 
 /* birthday cake */
 .cake{width:min(86vw,340px);height:auto;display:block;margin:0 auto;overflow:visible}
+.bdaywish{max-width:30rem;margin:0 auto 1.4rem;padding:16px 18px;border:1px solid rgba(251,238,230,.24);border-radius:16px;background:rgba(251,238,230,.07);font:italic 500 1.25rem/1.5 var(--serif);color:var(--paper);white-space:pre-line;opacity:0;transform:translateY(8px);transition:opacity 1.2s,transform 1.2s}
+.bdaywish.show{opacity:1;transform:none}
 .cakemsg{font:italic 500 1.3rem/1.4 var(--serif);color:var(--gold);min-height:2.9em;margin:.6rem 0 1.2rem}
 .flame{transform-box:fill-box;transform-origin:50% 100%;animation:flick .2s ease-in-out infinite alternate;filter:drop-shadow(0 0 5px rgba(255,178,122,.95));transition:transform .35s ease,opacity .35s ease}
 @keyframes flick{from{transform:scale(1,1) rotate(-3deg)}to{transform:scale(.9,1.14) rotate(3deg)}}
@@ -312,6 +314,7 @@ h2{font-size:clamp(2rem,8vw,2.9rem);margin-bottom:1.6rem}
         <polyline id="trail" points="" fill="none" stroke="#fff3c4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
       <p class="cakemsg" id="cakeMsg" aria-live="polite"></p>
+      <p class="bdaywish" id="bdayWish" aria-live="polite" hidden></p>
       <div class="stack">
         <button class="btn soft" id="blowMic">🎤 Blow into your mic</button>
         <button class="btn" id="blowTap">💨 Tap to blow</button>
@@ -421,6 +424,9 @@ const CONFIG = {
   song: "song.mp3",
   songStartAt: 0,     // start this many seconds in (skip a long intro)
   songVolume: 0.6,    // 0 to 1
+
+  // Shown right after the cake is cut. {her} and {you} are replaced by the names above.
+  birthdayWish: "Happy Birthday to the cutest and most beautiful girl! 🥹❤️\n\nYou’ve unknowingly become such a special part of my heart—more than words could ever explain. I hope your life is filled with endless smiles, happiness, and all the love you truly deserve. ✨\n\nKeep smiling, because your smile is genuinely one of my favorite things in this world. And maybe… there’s someone who thinks about you a little more than you’ll ever know. 🫠❤️🎂✨",
 
   typedLine: "I made you something. It takes about two minutes.",
 
@@ -578,6 +584,7 @@ const CONFIG = {
   const musicBtn = $('#musicBtn'), songBtn = $('#songBtn'), musicMsg = $('#musicMsg');
   let bgm = null, sources = [], srcIndex = 0;
   let wantPlay = false, userPaused = false, musicFailed = false, seeked = false, fade = null;
+  let resumeAfterMic = false, retryArmed = false;
   const say = msg => { musicMsg.textContent = msg; };
 
   // Tries the built-in song as a blob, then as a data URL, then as a file next to index.html.
@@ -602,6 +609,8 @@ const CONFIG = {
       bgm.loop = true;                                 // plays again from the start, forever
       bgm.preload = 'auto';
       bgm.addEventListener('error', onAudioError);
+      bgm.addEventListener('pause', syncMusicUI);
+      bgm.addEventListener('play', syncMusicUI);
       bgm.src = sources[0];
     }
     return bgm;
@@ -626,6 +635,7 @@ const CONFIG = {
     musicBtn.hidden = !CONFIG.song || musicFailed || cur === 'intro';
   }
   function afterPlay() {
+    disarmRetry();
     say('');
     syncMusicUI();
     clearInterval(fade);
@@ -638,7 +648,7 @@ const CONFIG = {
   function startMusic() {
     const a = getAudio();
     if (!a) return;
-    wantPlay = true; userPaused = false;
+    wantPlay = true; userPaused = false; resumeAfterMic = false;
     a.volume = 0;
     if (!seeked && CONFIG.songStartAt) {
       seeked = true;
@@ -646,12 +656,43 @@ const CONFIG = {
       if (a.readyState >= 1) seek(); else a.addEventListener('loadedmetadata', seek, { once: true });
     }
     a.play().then(afterPlay).catch(err => {
+      if (err && err.name === 'NotAllowedError') retryOnNextTouch();
       if (err && err.name === 'NotAllowedError') say('Tap “Play song” once more to start the music.');
       syncMusicUI();                                   // other errors: the "error" event tries the next source
     });
   }
   function pauseMusic() { wantPlay = false; userPaused = true; bgm.pause(); syncMusicUI(); }
   function toggleMusic() { if (bgm && !bgm.paused) pauseMusic(); else startMusic(); }
+
+  // While the mic is open, phones cut or duck the song anyway (and song sound leaking into
+  // the mic could blow the candles out by itself). So we pause it on purpose and bring it
+  // back, with the gentle fade-in, as soon as the mic is closed again.
+  function pauseMusicForMic() {
+    resumeAfterMic = wantPlay && !userPaused && !musicFailed;
+    clearInterval(fade);
+    if (bgm && !bgm.paused) bgm.pause();               // not pauseMusic(): this is not her choice
+  }
+  function resumeMusicAfterMic() {
+    if (!resumeAfterMic) return;
+    resumeAfterMic = false;
+    setTimeout(() => {                                 // let the phone hand audio back from the mic
+      if (!userPaused && !musicFailed && bgm && bgm.paused) startMusic();
+    }, 300);
+  }
+  // Some phones only allow audio to restart from a touch. If that happens, the next touch does it.
+  function tryAgain(e) {
+    if (e.target && e.target.closest && e.target.closest('#musicBtn, #songBtn')) return;
+    if (wantPlay && !userPaused && bgm && bgm.paused) startMusic();
+  }
+  function retryOnNextTouch() {
+    if (retryArmed) return;
+    retryArmed = true;
+    ['pointerup', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, tryAgain, true));
+  }
+  function disarmRetry() {
+    retryArmed = false;
+    ['pointerup', 'touchend', 'keydown'].forEach(ev => document.removeEventListener(ev, tryAgain, true));
+  }
   songBtn.addEventListener('click', toggleMusic);
   musicBtn.addEventListener('click', toggleMusic);
   syncMusicUI();
@@ -738,6 +779,7 @@ const CONFIG = {
   function stopMic() {
     cancelAnimationFrame(micRaf);
     if (mic) { mic.stream.getTracks().forEach(tr => tr.stop()); mic.ctx.close().catch(() => {}); mic = null; }
+    resumeMusicAfterMic();
   }
   function startCake() {
     stopMic();
@@ -754,6 +796,7 @@ const CONFIG = {
       `<circle class="smoke" cx="${x}" cy="56" r="4" fill="#fbeee6"/></g>`).join('');
     ['#blowMic', '#blowTap'].forEach(s => $(s).hidden = false);
     ['#cutBtn', '#cakeNext'].forEach(s => $(s).hidden = true);
+    $('#bdayWish').hidden = true; $('#bdayWish').classList.remove('show');
     cakeMsg.textContent = 'Close your eyes, make a wish… then blow out the candles.';
   }
   function candlesDone() {
@@ -778,9 +821,12 @@ const CONFIG = {
       cakeMsg.textContent = 'Mic isn’t available here, so tap the button instead 💨';
       return;
     }
+    let stream = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      pauseMusicForMic();
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
       const an = ctx.createAnalyser();
       an.fftSize = 512;
       ctx.createMediaStreamSource(stream).connect(an);
@@ -802,6 +848,8 @@ const CONFIG = {
         micRaf = requestAnimationFrame(tick);
       })();
     } catch (e) {
+      if (stream) stream.getTracks().forEach(tr => tr.stop());
+      resumeMusicAfterMic();
       cakeMsg.textContent = 'No mic access, so just tap the button and I’ll blow for you 💨';
     }
   }
@@ -817,12 +865,18 @@ const CONFIG = {
       cakeSvg.classList.add('cut');
       burst(80);
       cakeMsg.textContent = 'First slice is yours 🍰 and honestly, so is every slice after.';
+      later(() => {
+        const w = $('#bdayWish');
+        w.textContent = t(CONFIG.birthdayWish);
+        w.hidden = false; void w.offsetWidth; w.classList.add('show');
+        w.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
+      }, 1300);
     };
     if (withKnife) { cakeSvg.classList.add('cutting'); later(go, 850); } else go();
     later(() => {
       $('#cakeNext').hidden = false;
       $('#cakeNext').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
-    }, withKnife ? 1900 : 1300);
+    }, withKnife ? 8000 : 7400);
   }
   $('#cutBtn').addEventListener('click', () => performCut(205, true));
 
