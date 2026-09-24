@@ -190,7 +190,7 @@ h2{font-size:clamp(2rem,8vw,2.9rem);margin-bottom:1.6rem}
 
 /* cake page decorations */
 #cake{padding-top:max(76px,env(safe-area-inset-top))}
-#cake .wrap,#mailbox .wrap{position:relative;z-index:1}
+#cake .wrap,#mailbox .wrap,#gifts .wrap{position:relative;z-index:1}
 .deco{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
 .bunting{position:absolute;top:0;left:0;width:100%;height:80px}
 .balloon{
@@ -236,6 +236,37 @@ h2{font-size:clamp(2rem,8vw,2.9rem);margin-bottom:1.6rem}
 .wishcard .btn{width:100%}
 .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
 .flyenv{position:fixed;left:0;top:0;z-index:65;font-size:2.4rem;line-height:1;pointer-events:none}
+
+/* gifts after the cake */
+#gifts{padding-top:max(60px,env(safe-area-inset-top))}
+.giftlist{display:flex;flex-direction:column;gap:14px;text-align:left;margin:1.2rem 0 1.4rem}
+.gift{--c:#f2899e;border:1px solid rgba(251,238,230,.24);border-radius:16px;background:rgba(251,238,230,.07);overflow:hidden;transition:border-color .4s,opacity .4s,background .4s}
+.gift:nth-child(2){--c:#f4c98a}
+.gift:nth-child(3){--c:#b9a2e8}
+.gift.locked{opacity:.45}
+.gift.ready{border-color:var(--gold);background:rgba(244,201,138,.09)}
+.gift.open{border-color:var(--c)}
+.giftbtn{display:flex;align-items:center;gap:16px;width:100%;min-height:88px;padding:12px 16px;background:none;border:0;color:var(--paper);font:inherit;text-align:left;cursor:pointer}
+.giftbtn:disabled{cursor:default}
+.giftbtn:focus-visible{outline:3px solid var(--rose);outline-offset:-3px;border-radius:16px}
+.gbox{width:64px;height:64px;flex:none;overflow:visible}
+.gbox .bx{fill:var(--c)}
+.gbox .rb{fill:var(--paper)}
+.gbox .lidr{stroke:rgba(20,15,31,.25);stroke-width:1}
+.gbox ellipse{stroke:var(--c);stroke-width:1.5}
+.gbox .lid{transform-box:fill-box;transform-origin:20% 100%;transition:transform .7s cubic-bezier(.3,1.5,.5,1),opacity .5s .25s}
+.gift.open .lid{transform:translate(-8px,-22px) rotate(-24deg);opacity:0}
+.gift.ready .gbox{animation:giftbob 1.2s ease-in-out infinite alternate}
+@keyframes giftbob{from{transform:translateY(0) rotate(-4deg)}to{transform:translateY(-5px) rotate(4deg)}}
+.gtext{display:flex;flex-direction:column;gap:2px}
+.glabel{font:italic 600 1.5rem/1.1 var(--serif)}
+.ghint{font-size:.85rem;color:rgba(251,238,230,.65)}
+.gbody{padding:2px 18px 18px;animation:settle .7s ease both}
+.gemoji{font-size:2.4rem;line-height:1.1;margin-bottom:.3rem}
+.gtitle{font:italic 600 1.75rem/1.15 var(--serif);color:var(--gold);margin-bottom:.5rem}
+.gdesc{font:500 1.25rem/1.45 var(--serif)}
+.gtag{display:inline-block;margin-top:.9rem;font-size:.8rem;color:rgba(251,238,230,.75);border:1px dashed rgba(251,238,230,.35);border-radius:999px;padding:.25rem .8rem}
+.gfrom{margin-top:.7rem;text-align:right;font:italic 500 1.1rem var(--serif);color:var(--gold)}
 
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms!important;animation-delay:0s!important;transition-duration:.01ms!important}
@@ -320,6 +351,22 @@ h2{font-size:clamp(2rem,8vw,2.9rem);margin-bottom:1.6rem}
         <button class="btn" id="blowTap">💨 Tap to blow</button>
         <button class="btn soft" id="cutBtn" hidden>Or just tap to cut 🔪</button>
         <button class="btn" id="cakeNext" data-next hidden>Continue</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene" id="gifts">
+    <div class="deco" aria-hidden="true">
+      <span class="spark sp1">✨</span><span class="spark sp2">⭐</span><span class="spark sp3">✨</span>
+      <span class="spark sp4">✨</span><span class="spark sp5">⭐</span><span class="spark sp6">✨</span>
+    </div>
+    <div class="wrap">
+      <h2 id="giftsTitle"></h2>
+      <p class="cakemsg" id="giftsIntro"></p>
+      <div class="giftlist" id="giftList"></div>
+      <p class="cakemsg" id="giftsMsg" aria-live="polite"></p>
+      <div class="stack">
+        <button class="btn" id="giftsNext" hidden>Continue</button>
       </div>
     </div>
   </section>
@@ -427,6 +474,33 @@ const CONFIG = {
 
   // Shown right after the cake is cut. {her} and {you} are replaced by the names above.
   birthdayWish: "Happy Birthday to the cutest and most beautiful girl! 🥹❤️\n\nYou’ve unknowingly become such a special part of my heart—more than words could ever explain. I hope your life is filled with endless smiles, happiness, and all the love you truly deserve. ✨\n\nKeep smiling, because your smile is genuinely one of my favorite things in this world. And maybe… there’s someone who thinks about you a little more than you’ll ever know. 🫠❤️🎂✨",
+
+  // Gifts she opens one by one right after she says Yes (and closes the love popup). Edit the words freely.
+  gifts: {
+    title: "A few gifts from me 🎁",
+    intro: "You just made me the happiest person 🥹 so I have a few gifts for you. Open them one by one 💝",
+    done:  "That’s all three 🥹 I hope they made you smile, {her}.",
+    items: [
+      {
+        emoji: "☕",
+        title: "A cute & fun coffee date",
+        text:  "One coffee date, planned by me, just for you. A cozy corner, your favourite coffee, silly jokes, and me trying my best to make you laugh.",
+        tag:   "Redeemable anytime • Never expires"
+      },
+      {
+        emoji: "🎬",
+        title: "A movie together",
+        text:  "You pick the movie, I’ll get the popcorn. No phones, no rush, just a big screen and the seat right next to you.",
+        tag:   "Redeemable anytime • Snacks included 🍿"
+      },
+      {
+        emoji: "💖",
+        title: "My heart",
+        text:  "This one doesn’t need any wrapping, because it’s already yours. It has been for a while now. Handle with love. It beats a little faster around you.",
+        tag:   "Yours forever • Non-returnable 😌"
+      }
+    ]
+  },
 
   typedLine: "I made you something. It takes about two minutes.",
 
@@ -546,7 +620,7 @@ const CONFIG = {
   const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
 
   /* ---------- scene switching ---------- */
-  const hooks = { intro: startIntro, wishes: startWishes, cake: startCake, mailbox: startMailbox, letter: startLetter, ask: startAsk };
+  const hooks = { intro: startIntro, wishes: startWishes, cake: startCake, gifts: startGifts, mailbox: startMailbox, letter: startLetter, ask: startAsk };
   function show(id) {
     clearTimers();
     cur = id;
@@ -909,6 +983,60 @@ const CONFIG = {
   cakeSvg.addEventListener('pointerup', endDrag);
   cakeSvg.addEventListener('pointercancel', endDrag);
 
+  /* ---------- gifts after the cake ---------- */
+  const GIFT_BOX = '<svg class="gbox" viewBox="0 0 64 64" aria-hidden="true"><rect class="bx" x="8" y="28" width="48" height="30" rx="4"/><rect class="rb" x="29" y="28" width="6" height="30"/><g class="lid"><rect class="bx lidr" x="5" y="18" width="54" height="12" rx="4"/><rect class="rb" x="29" y="18" width="6" height="12"/><ellipse class="rb" cx="25" cy="12" rx="8" ry="5" transform="rotate(-20 25 12)"/><ellipse class="rb" cx="39" cy="12" rx="8" ry="5" transform="rotate(20 39 12)"/></g></svg>';
+  function startGifts() {
+    const G = CONFIG.gifts, list = $('#giftList');
+    $('#giftsTitle').textContent = t(G.title);
+    $('#giftsIntro').textContent = t(G.intro);
+    $('#giftsMsg').textContent = '';
+    $('#giftsNext').hidden = true;
+    list.innerHTML = '';
+    G.items.forEach((g, i) => {
+      const el = document.createElement('div');
+      el.className = 'gift ' + (i === 0 ? 'ready' : 'locked');
+      el.innerHTML = '<button class="giftbtn" type="button">' + GIFT_BOX +
+        '<span class="gtext"><span class="glabel"></span><span class="ghint"></span></span></button>' +
+        '<div class="gbody" hidden><div class="gemoji" aria-hidden="true"></div><h3 class="gtitle"></h3>' +
+        '<p class="gdesc"></p><span class="gtag"></span><p class="gfrom"></p></div>';
+      const btn = el.querySelector('.giftbtn');
+      el.querySelector('.glabel').textContent = 'Gift ' + (i + 1);
+      el.querySelector('.ghint').textContent = i === 0 ? 'Tap to open ✨' : 'Open gift ' + i + ' first 🔒';
+      el.querySelector('.gemoji').textContent = g.emoji;
+      el.querySelector('.gtitle').textContent = t(g.title);
+      el.querySelector('.gdesc').textContent = t(g.text);
+      el.querySelector('.gtag').textContent = t(g.tag || '');
+      el.querySelector('.gtag').hidden = !g.tag;
+      el.querySelector('.gfrom').textContent = t('From {you} 💌');
+      btn.disabled = i !== 0;
+      btn.setAttribute('aria-label', 'Open gift ' + (i + 1));
+      btn.addEventListener('click', () => openGift(i));
+      list.appendChild(el);
+    });
+  }
+  $('#giftsNext').addEventListener('click', () => show('result'));
+  function openGift(i) {
+    const els = $$('#giftList .gift'), el = els[i];
+    if (!el || !el.classList.contains('ready')) return;
+    el.classList.replace('ready', 'open');
+    el.querySelector('.giftbtn').disabled = true;
+    el.querySelector('.ghint').textContent = 'Opened 💝';
+    el.querySelector('.gbody').hidden = false;
+    const last = i === els.length - 1;
+    burst(last ? 140 : 60);
+    later(() => el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' }), 150);
+    if (!last) {
+      const n = els[i + 1];
+      n.classList.replace('locked', 'ready');
+      n.querySelector('.giftbtn').disabled = false;
+      n.querySelector('.ghint').textContent = 'Tap to open ✨';
+    } else {
+      $('#giftsMsg').textContent = t(CONFIG.gifts.done);
+      $('#giftsNext').hidden = false;
+      later(() => $('#giftsNext').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' }), 900);
+    }
+  }
+
   /* ---------- make-a-wish post box ---------- */
   let posting = false;
   function startMailbox() {
@@ -1096,7 +1224,10 @@ const CONFIG = {
     $('#overlay').classList.add('open');
     $('#loveClose').focus();
   }
-  $('#loveClose').addEventListener('click', () => $('#overlay').classList.remove('open'));
+  $('#loveClose').addEventListener('click', () => {
+    $('#overlay').classList.remove('open');
+    if (cur === 'result') show('gifts');   // gifts come right after she says Yes
+  });
 
   function answer(key) {
     const r = CONFIG.results[key];
