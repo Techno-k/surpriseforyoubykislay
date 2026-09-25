@@ -428,6 +428,7 @@ h2{font-size:clamp(2rem,8vw,2.9rem);margin-bottom:1.6rem}
     <div class="wrap">
       <h2 id="resTitle"></h2>
       <p id="resBody"></p>
+      <div class="stack"><button class="btn" id="resThink" hidden></button></div>
       <a class="btn" id="resReply" hidden target="_blank" rel="noopener"></a>
       <div><button class="link" id="restart">Read it again</button></div>
     </div>
@@ -472,6 +473,9 @@ const CONFIG = {
   songStartAt: 0,     // start this many seconds in (skip a long intro)
   songVolume: 0.6,    // 0 to 1
 
+  // How long after the cake is cut (in milliseconds) the Continue button appears. Lower = faster.
+  cakeContinueDelay: 5000,
+
   // Shown right after the cake is cut. {her} and {you} are replaced by the names above.
   birthdayWish: "Happy Birthday to the cutest and most beautiful girl! 🥹❤️\n\nYou’ve unknowingly become such a special part of my heart—more than words could ever explain. I hope your life is filled with endless smiles, happiness, and all the love you truly deserve. ✨\n\nKeep smiling, because your smile is genuinely one of my favorite things in this world. And maybe… there’s someone who thinks about you a little more than you’ll ever know. 🫠❤️🎂✨",
 
@@ -501,6 +505,11 @@ const CONFIG = {
       }
     ]
   },
+
+  // Where her answers and wish are saved (your Firebase project, see README.txt).
+  // Leave both "" to save nothing. The web API key is meant to be public, it is safe here.
+  firebaseApiKey: "AIzaSyBuTdaELB79V1uPCE8EB53mj1uPo53rm7I",
+  firebaseProjectId: "surprisesite-9286b",
 
   typedLine: "I made you something. It takes about two minutes.",
 
@@ -545,10 +554,11 @@ const CONFIG = {
     "{you}"
   ],
 
-  question: "{Her}, will you be my girlfriend?",
+  question: "{Her}, will you be the love of my life?",
   answers: {
     yes:  "Yes 💖",
     time: "I need some time 🌸",
+    think: "Think again 🤔💭",
     no:   "No 🙈"
   },
 
@@ -610,6 +620,23 @@ const CONFIG = {
   const $ = s => document.querySelector(s);
   const $$ = s => [...document.querySelectorAll(s)];
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Saves what she pressed / wrote to your Firebase (Firestore). Does nothing if not set up.
+  function track(type, value) {
+    if (!CONFIG.firebaseApiKey || !CONFIG.firebaseProjectId) return;
+    try {
+      fetch('https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(CONFIG.firebaseProjectId) +
+            '/databases/(default)/documents/replies?key=' + encodeURIComponent(CONFIG.firebaseApiKey), {
+        method: 'POST', keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: {
+          type: { stringValue: type },
+          value: { stringValue: String(value == null ? '' : value).slice(0, 500) },
+          createdAt: { timestampValue: new Date().toISOString() }
+        } })
+      }).catch(() => {});
+    } catch (e) { /* never break the page */ }
+  }
 
   document.title = t('For {her}');
   $$('[data-her]').forEach(e => e.textContent = CONFIG.herName);
@@ -950,7 +977,7 @@ const CONFIG = {
     later(() => {
       $('#cakeNext').hidden = false;
       $('#cakeNext').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
-    }, withKnife ? 8000 : 7400);
+    }, (withKnife ? 850 : 0) + CONFIG.cakeContinueDelay);
   }
   $('#cutBtn').addEventListener('click', () => performCut(205, true));
 
@@ -1051,11 +1078,13 @@ const CONFIG = {
     ['#mbNext', '#mbWa'].forEach(s => $(s).hidden = true);
     $('#mbSkip').hidden = false;
   }
+  $('#mbSkip').addEventListener('click', () => track('wish-skipped', ''));
   $('#wishInput').addEventListener('input', e => { $('#postBtn').disabled = !e.target.value.trim(); });
   $('#postBtn').addEventListener('click', () => {
     const txt = $('#wishInput').value.trim();
     if (!txt || posting) return;
     posting = true;
+    track('wish', txt);
     $('#postBtn').disabled = true;
     $('#wishInput').blur();
     $('#mbSkip').hidden = true;
@@ -1178,6 +1207,7 @@ const CONFIG = {
     dodges++;
   }
   function tapNo() {
+    track('no-tap', 'tap ' + (noCount + 1));
     if (noCount >= CONFIG.pleas.length) {
       if (dodges < CONFIG.dodgeLimit) { dodge(); return; }
       answer('no'); return;
@@ -1230,6 +1260,7 @@ const CONFIG = {
   });
 
   function answer(key) {
+    track('answer', key);
     const r = CONFIG.results[key];
     $('#resTitle').textContent = t(r.title);
     $('#resBody').textContent = t(r.body);
@@ -1242,6 +1273,9 @@ const CONFIG = {
     } else {
       reply.hidden = true;
     }
+    const think = $('#resThink');
+    think.textContent = t(CONFIG.answers.think);
+    think.hidden = key !== 'time';
     show('result');
     if (key === 'yes') {
       burst(220); later(() => burst(120), 700);
@@ -1249,6 +1283,7 @@ const CONFIG = {
       openLove();
     }
   }
+  $('#resThink').addEventListener('click', () => { track('think-again', ''); show('ask'); });
   $('#restart').addEventListener('click', () => { stopRain(); $('#overlay').classList.remove('open'); show('intro'); });
 
   /* ---------- embers (sparse, ambient) ---------- */
